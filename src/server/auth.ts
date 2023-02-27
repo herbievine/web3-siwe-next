@@ -32,38 +32,7 @@ export const getAuthOptions = (req: IncomingMessage): NextAuthOptions => ({
   },
   providers: [
     CredentialsProvider({
-      async authorize(credentials) {
-        try {
-          const siwe = new SiweMessage(
-            JSON.parse(credentials?.message || "{}") as string
-          );
-
-          const nextAuthUrl =
-            process.env.NEXTAUTH_URL ||
-            (process.env.VERCEL_URL
-              ? `https://${process.env.VERCEL_URL}`
-              : null);
-          if (!nextAuthUrl) {
-            return null;
-          }
-
-          const nextAuthHost = new URL(nextAuthUrl).host;
-          if (siwe.domain !== nextAuthHost) {
-            return null;
-          }
-
-          if (siwe.nonce !== (await getCsrfToken({ req }))) {
-            return null;
-          }
-
-          await siwe.validate(credentials?.signature || "");
-          return {
-            id: siwe.address,
-          };
-        } catch (e) {
-          return null;
-        }
-      },
+      name: "Ethereum",
       credentials: {
         message: {
           label: "Message",
@@ -76,7 +45,30 @@ export const getAuthOptions = (req: IncomingMessage): NextAuthOptions => ({
           type: "text",
         },
       },
-      name: "Ethereum",
+      async authorize(credentials) {
+        try {
+          const siwe = new SiweMessage(
+            JSON.parse(credentials?.message || "{}") as string
+          );
+          const nextAuthUrl = new URL(env.NEXTAUTH_URL);
+
+          const result = await siwe.verify({
+            signature: credentials?.signature || "",
+            domain: nextAuthUrl.host,
+            nonce: await getCsrfToken({ req }),
+          });
+
+          if (result.success) {
+            return {
+              id: siwe.address,
+            };
+          }
+
+          return null;
+        } catch (e) {
+          return null;
+        }
+      },
     }),
   ],
 });
