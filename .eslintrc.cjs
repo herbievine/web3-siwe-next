@@ -28,5 +28,6 @@ module.exports = {
     "@typescript-eslint/require-await": "off",
     "@typescript-eslint/ban-ts-comment": "off",
     "@typescript-eslint/unbound-method": "off",
+    "@typescript-eslint/no-unsafe-return": "off"
   },
 };

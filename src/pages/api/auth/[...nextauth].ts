@@ -18,5 +18,6 @@ export default async function auth(req: NextApiRequest, res: NextApiResponse) {
     authOptions.providers.pop();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return await NextAuth(req, res, authOptions);
 }
