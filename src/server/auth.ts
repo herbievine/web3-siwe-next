@@ -50,14 +50,16 @@ export const getAuthOptions = (req: IncomingMessage): NextAuthOptions => ({
           const siwe = new SiweMessage(
             JSON.parse(credentials?.message || "{}") as string
           );
-          const nextAuthUrl = new URL(env.NEXTAUTH_URL);
+          // const nextAuthUrl = new URL(env.NEXTAUTH_URL);
 
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
           const result = await siwe.verify({
             signature: credentials?.signature || "",
-            domain: nextAuthUrl.host,
+            // domain: nextAuthUrl.host,
             nonce: await getCsrfToken({ req }),
           });
 
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (result.success) {
             return {
               id: siwe.address,
