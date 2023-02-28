@@ -7,33 +7,43 @@ import {
 import { type CustomNodeConfiguration, Magic } from "magic-sdk";
 import ethers, { type Signer, type providers } from "ethers";
 import { type Address, normalizeChainId } from "@wagmi/core";
-import { Web3Auth, type Web3AuthOptions } from "@web3auth/modal";
+import { type Web3Auth } from "@web3auth/modal";
 import type { SafeEventEmitterProvider } from "@web3auth/base/dist/types/provider/IProvider";
+
+export interface Web3AuthConnectorOptions {
+  chains: Chain[];
+  options: {
+    client: Web3Auth;
+    plugins?: Parameters<Web3Auth["addPlugin"]>[0][];
+  };
+}
 
 export class Web3AuthConnector extends Connector<
   SafeEventEmitterProvider,
-  Web3AuthOptions,
+  Web3AuthConnectorOptions["options"],
   providers.JsonRpcSigner
 > {
   readonly id = "web3auth";
   readonly name = "Web3Auth";
   readonly ready = typeof window !== "undefined";
-  readonly sdk!: Web3Auth;
 
   #provider?: SafeEventEmitterProvider;
-  #options: Web3AuthOptions;
+  #client!: Web3Auth;
+  #plugins?: Parameters<Web3Auth["addPlugin"]>[0][];
 
-  constructor(config: { chains: Chain[]; options: Web3AuthOptions }) {
+  constructor(config: Web3AuthConnectorOptions) {
     super(config);
 
-    this.#options = config.options;
-    if (this.ready) this.sdk = new Web3Auth(this.#options);
+    if (this.ready) {
+      this.#client = config.options.client;
+      this.#plugins = config.options.plugins;
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async getProvider() {
     if (!this.#provider) {
-      this.#provider = this.sdk.provider!;
+      this.#provider = this.#client.provider!;
     }
     return this.#provider;
   }
@@ -60,27 +70,38 @@ export class Web3AuthConnector extends Connector<
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async getChainId(): Promise<number> {
-    const chainId = this.#options.chainConfig.chainId ?? "0x1";
+    const chainId = this.#client.coreOptions.clientId;
 
     return normalizeChainId(chainId);
   }
 
   async isAuthorized() {
     try {
-      return !!(await this.sdk.getUserInfo());
+      return !!(await this.#client.getUserInfo());
     } catch {
       return false;
     }
   }
 
   async connect(): Promise<Required<ConnectorData>> {
-    if (this.sdk.status === "not_ready") {
-      await this.sdk.init();
-      await this.sdk.initModal();
+    if (this.#client.status === "not_ready") {
+      if (this.#plugins) {
+        for (const plugin of this.#plugins) {
+          await this.#client.addPlugin(plugin);
+        }
+      }
+
+      await this.#client.initModal();
     }
 
+    console.log(
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      `Connecting to Web3Auth with ${this.#plugins?.length} plugin(s)...`
+    );
+
     try {
-      // await this.sdk.connect();
+      await this.#client.connect();
+
       const provider = await this.getProvider();
 
       if (!provider) throw new Error("No provider found");
@@ -94,7 +115,6 @@ export class Web3AuthConnector extends Connector<
 
       this.emit("message", { type: "connecting" });
 
-      await this.sdk.connect();
       const chainId = normalizeChainId(await this.getChainId());
 
       return {
@@ -115,7 +135,7 @@ export class Web3AuthConnector extends Connector<
   }
 
   async disconnect(): Promise<void> {
-    await this.sdk.logout();
+    await this.#client.logout();
   }
 
   protected onDisconnect(): void {

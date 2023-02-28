@@ -1,15 +1,10 @@
 import type { Wallet } from "@rainbow-me/rainbowkit";
-import { type Web3AuthOptions } from "@web3auth/modal";
+import type { Web3Auth, Web3AuthOptions } from "@web3auth/modal";
 import type { Chain, Connector } from "wagmi";
-import { Web3AuthConnector } from "./connector";
-
-export interface Web3AuthWalletOptions {
-  chains: Chain[];
-  options: Web3AuthOptions;
-}
+import { Web3AuthConnector, type Web3AuthConnectorOptions } from "./connector";
 
 export const web3AuthWallet = (
-  opts: Web3AuthWalletOptions
+  opts: Web3AuthConnectorOptions
 ): Wallet<Connector> => ({
   id: "web3auth",
   name: "Web3Auth",
