@@ -3,7 +3,7 @@ import "@rainbow-me/rainbowkit/styles.css";
 import { type AppType } from "next/app";
 import { type Session } from "next-auth";
 import { SessionProvider } from "next-auth/react";
-import { chains, wagmiClient } from "~/lib/evm";
+import { chains, wagmiClient } from "~/evm/evm";
 import { WagmiConfig } from "wagmi";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { RainbowKitSiweNextAuthProvider } from "@rainbow-me/rainbowkit-siwe-next-auth";

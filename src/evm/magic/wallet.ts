@@ -15,6 +15,7 @@ export const magicWallet = (opts: MagicWalletOptions): Wallet<Connector> => ({
   installed: typeof window !== "undefined",
   createConnector() {
     return {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       connector: new MagicConnector(opts),
     };
   },
