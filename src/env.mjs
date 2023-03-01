@@ -20,7 +20,6 @@ const server = z.object({
  */
 const client = z.object({
   NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY: z.string().min(1),
-  NEXT_PUBLIC_WEB3AUTH_CLIENT_ID: z.string().min(1),
 });
 
 /**
@@ -35,7 +34,6 @@ const processEnv = {
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   MAGIC_SECRET_KEY: process.env.MAGIC_SECRET_KEY,
   NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY,
-  NEXT_PUBLIC_WEB3AUTH_CLIENT_ID: process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID,
 };
 
 // Don't touch the part below
