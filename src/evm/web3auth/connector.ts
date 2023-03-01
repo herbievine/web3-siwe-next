@@ -15,6 +15,7 @@ export interface Web3AuthConnectorOptions {
   options: {
     client: Web3Auth;
     plugins?: Parameters<Web3Auth["addPlugin"]>[0][];
+    adapters?: Parameters<Web3Auth["configureAdapter"]>[0][];
   };
 }
 
@@ -30,6 +31,7 @@ export class Web3AuthConnector extends Connector<
   #provider?: SafeEventEmitterProvider;
   #client!: Web3Auth;
   #plugins?: Parameters<Web3Auth["addPlugin"]>[0][];
+  #adapters?: Parameters<Web3Auth["configureAdapter"]>[0][];
 
   constructor(config: Web3AuthConnectorOptions) {
     super(config);
@@ -37,11 +39,13 @@ export class Web3AuthConnector extends Connector<
     if (this.ready) {
       this.#client = config.options.client;
       this.#plugins = config.options.plugins;
+      this.#adapters = config.options.adapters;
     }
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async getProvider() {
+    console.log("getProvider");
     if (!this.#provider) {
       this.#provider = this.#client.provider!;
     }
@@ -49,6 +53,7 @@ export class Web3AuthConnector extends Connector<
   }
 
   async getSigner(): Promise<providers.JsonRpcSigner> {
+    console.log("getSigner");
     const provider = new ethers.providers.Web3Provider(
       await this.getProvider()
     );
@@ -57,9 +62,12 @@ export class Web3AuthConnector extends Connector<
   }
 
   async getAccount(): Promise<Address> {
+    console.log("getAccount");
     const provider = new ethers.providers.Web3Provider(
       await this.getProvider()
     );
+    console.log("provider getAccount", provider);
+
     const signer = provider.getSigner();
     const account = await signer.getAddress();
 
@@ -70,12 +78,14 @@ export class Web3AuthConnector extends Connector<
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async getChainId(): Promise<number> {
+    console.log("getChainId");
     const chainId = this.#client.coreOptions.clientId;
 
     return normalizeChainId(chainId);
   }
 
   async isAuthorized() {
+    console.log("isAuthorized");
     try {
       return !!(await this.#client.getUserInfo());
     } catch {
@@ -83,7 +93,10 @@ export class Web3AuthConnector extends Connector<
     }
   }
 
+  // @ts-ignore
   async connect(): Promise<Required<ConnectorData>> {
+    console.log("connect");
+
     if (this.#client.status === "not_ready") {
       if (this.#plugins) {
         for (const plugin of this.#plugins) {
@@ -91,40 +104,62 @@ export class Web3AuthConnector extends Connector<
         }
       }
 
+      if (this.#adapters) {
+        for (const adapter of this.#adapters) {
+          this.#client.configureAdapter(adapter);
+        }
+      }
+
       await this.#client.initModal();
     }
 
-    console.log(
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      `Connecting to Web3Auth with ${this.#plugins?.length} plugin(s)...`
-    );
-
     try {
-      await this.#client.connect();
-
-      const provider = await this.getProvider();
+      const provider = await this.#client.connect();
 
       if (!provider) throw new Error("No provider found");
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      provider.on("accountsChanged", this.onAccountsChanged);
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      provider.on("chainChanged", this.onChainChanged);
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      provider.on("disconnect", this.onDisconnect);
+      this.#provider = provider;
 
-      this.emit("message", { type: "connecting" });
+      console.log(
+        "request",
+        await provider.request({ method: "eth_accounts" })
+      );
 
-      const chainId = normalizeChainId(await this.getChainId());
+      const s = new ethers.providers.Web3Provider(provider);
+      // console.log("provider getAccount", provider);
 
-      return {
-        account: "0xE2b8a1e1696c8d5Bb4F7922d7bA4B657b5e5d60b",
-        chain: {
-          id: chainId,
-          unsupported: this.isChainUnsupported(chainId),
-        },
-        provider: this.#provider,
-      };
+      // const signer = s.getSigner();
+      // const account = await signer.getAddress();
+
+      // console.log("conected", {
+      //   account: account,
+      //   // chain: {
+      //   //   id: await this.getChainId(),
+      //   //   unsupported: this.isChainUnsupported(await this.getChainId()),
+      //   // },
+      // });
+
+      // console.log("here");
+
+      // // eslint-disable-next-line @typescript-eslint/unbound-method
+      // provider.on("accountsChanged", this.onAccountsChanged);
+      // // eslint-disable-next-line @typescript-eslint/unbound-method
+      // provider.on("chainChanged", this.onChainChanged);
+      // // eslint-disable-next-line @typescript-eslint/unbound-method
+      // provider.on("disconnect", this.onDisconnect);
+
+      // this.emit("message", { type: "connecting" });
+
+      // const chainId = normalizeChainId(await this.getChainId());
+
+      // return {
+      //   account: await this.getAccount(),
+      //   chain: {
+      //     id: chainId,
+      //     unsupported: this.isChainUnsupported(chainId),
+      //   },
+      //   provider: this.#provider,
+      // };
     } catch (error) {
       console.error(error);
 
@@ -135,6 +170,7 @@ export class Web3AuthConnector extends Connector<
   }
 
   async disconnect(): Promise<void> {
+    console.log("disconnect");
     await this.#client.logout();
   }
 

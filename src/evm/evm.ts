@@ -1,6 +1,6 @@
 import { connectorsForWallets } from "@rainbow-me/rainbowkit";
 import { configureChains, createClient } from "wagmi";
-import { optimism } from "wagmi/chains";
+import { polygonMumbai } from "wagmi/chains";
 import { publicProvider } from "wagmi/providers/public";
 import {
   metaMaskWallet,
@@ -11,9 +11,12 @@ import {
 import { magicWallet } from "./magic/wallet";
 import { env } from "~/env.mjs";
 import { web3AuthWallet } from "./web3auth/wallet";
-import { torusPlugin, web3Auth } from "./web3auth/client";
+import { torusPlugin, torusWalletAdapter, web3Auth } from "./web3auth/client";
 
-const { chains, provider } = configureChains([optimism], [publicProvider()]);
+const { chains, provider } = configureChains(
+  [polygonMumbai],
+  [publicProvider()]
+);
 
 const connectors = connectorsForWallets([
   {
@@ -28,7 +31,8 @@ const connectors = connectorsForWallets([
         options: {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           client: web3Auth,
-          plugins: [torusPlugin],
+          // plugins: [torusPlugin],
+          adapters: [torusWalletAdapter],
         },
       }),
       magicWallet({
@@ -37,8 +41,8 @@ const connectors = connectorsForWallets([
           apiKey: env.NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY,
           config: {
             network: {
-              chainId: optimism.id,
-              rpcUrl: "https://mainnet.optimism.io",
+              chainId: polygonMumbai.id,
+              rpcUrl: "https://rpc-mumbai.maticvigil.com/",
             },
           },
         },
