@@ -8,10 +8,8 @@ import {
   walletConnectWallet,
   ledgerWallet,
 } from "@rainbow-me/rainbowkit/wallets";
-import { magicWallet } from "./magic/wallet";
+import { magicWallet } from "./wallet";
 import { env } from "~/env.mjs";
-import { web3AuthWallet } from "./web3auth/wallet";
-import { torusPlugin, torusWalletAdapter, web3Auth } from "./web3auth/client";
 
 const { chains, provider } = configureChains(
   [polygonMumbai],
@@ -26,15 +24,6 @@ const connectors = connectorsForWallets([
       rainbowWallet({ chains }),
       walletConnectWallet({ chains }),
       ledgerWallet({ chains }),
-      web3AuthWallet({
-        chains,
-        options: {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          client: web3Auth,
-          // plugins: [torusPlugin],
-          adapters: [torusWalletAdapter],
-        },
-      }),
       magicWallet({
         chains,
         options: {

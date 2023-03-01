@@ -4,70 +4,72 @@ import {
   UserRejectedRequestError,
   type Chain,
 } from "wagmi";
+import type { RPCProviderModule } from "@magic-sdk/provider/dist/types/modules/rpc-provider";
+import type { AbstractProvider } from "web3-core";
+import type {
+  InstanceWithExtensions,
+  SDKBase,
+  MagicSDKExtensionsOption,
+  MagicSDKAdditionalConfiguration,
+} from "@magic-sdk/provider";
 import { type CustomNodeConfiguration, Magic } from "magic-sdk";
 import { ethers, type Signer, type providers } from "ethers";
 import { type Address, normalizeChainId } from "@wagmi/core";
-import { type Web3Auth } from "@web3auth/modal";
-import type { SafeEventEmitterProvider } from "@web3auth/base/dist/types/provider/IProvider";
 
-export interface Web3AuthConnectorOptions {
-  chains: Chain[];
-  options: {
-    client: Web3Auth;
-    plugins?: Parameters<Web3Auth["addPlugin"]>[0][];
-    adapters?: Parameters<Web3Auth["configureAdapter"]>[0][];
-  };
+export interface MagicConnectorOptions {
+  apiKey: string;
+  config?: MagicSDKAdditionalConfiguration<
+    string,
+    MagicSDKExtensionsOption<string>
+  >;
 }
 
-export class Web3AuthConnector extends Connector<
-  SafeEventEmitterProvider,
-  Web3AuthConnectorOptions["options"],
+export type MagicConnectorProvider = RPCProviderModule & AbstractProvider;
+
+export class MagicConnector extends Connector<
+  MagicConnectorProvider,
+  MagicConnectorOptions,
   providers.JsonRpcSigner
 > {
-  readonly id = "web3auth";
-  readonly name = "Web3Auth";
+  readonly id = "magic";
+  readonly name = "Magic";
   readonly ready = typeof window !== "undefined";
+  readonly sdk!: InstanceWithExtensions<
+    SDKBase,
+    MagicSDKExtensionsOption<string>
+  >;
 
-  #provider?: SafeEventEmitterProvider;
-  #client!: Web3Auth;
-  #plugins?: Parameters<Web3Auth["addPlugin"]>[0][];
-  #adapters?: Parameters<Web3Auth["configureAdapter"]>[0][];
+  #provider?: MagicConnectorProvider;
+  #options: MagicConnectorOptions;
 
-  constructor(config: Web3AuthConnectorOptions) {
+  constructor(config: { chains: Chain[]; options: MagicConnectorOptions }) {
     super(config);
 
-    if (this.ready) {
-      this.#client = config.options.client;
-      this.#plugins = config.options.plugins;
-      this.#adapters = config.options.adapters;
-    }
+    this.#options = config.options;
+    if (this.ready)
+      this.sdk = new Magic(this.#options.apiKey, this.#options.config);
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async getProvider() {
-    console.log("getProvider");
     if (!this.#provider) {
-      this.#provider = this.#client.provider!;
+      this.#provider = this.sdk.rpcProvider as MagicConnectorProvider;
     }
     return this.#provider;
   }
 
   async getSigner(): Promise<providers.JsonRpcSigner> {
-    console.log("getSigner");
     const provider = new ethers.providers.Web3Provider(
-      await this.getProvider()
+      (await this.getProvider()) as unknown as providers.ExternalProvider
     );
 
     return provider.getSigner();
   }
 
   async getAccount(): Promise<Address> {
-    console.log("getAccount");
     const provider = new ethers.providers.Web3Provider(
-      await this.getProvider()
+      (await this.getProvider()) as unknown as providers.ExternalProvider
     );
-    console.log("provider getAccount", provider);
-
     const signer = provider.getSigner();
     const account = await signer.getAddress();
 
@@ -78,59 +80,47 @@ export class Web3AuthConnector extends Connector<
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async getChainId(): Promise<number> {
-    console.log("getChainId");
-    const chainId = this.#client.coreOptions.clientId;
+    const networkOptions = this.#options.config?.network;
 
-    return normalizeChainId(chainId);
+    if (typeof networkOptions === "object") {
+      const chainId = networkOptions?.chainId;
+
+      if (chainId) {
+        return normalizeChainId(chainId);
+      }
+    }
+
+    throw new Error("Chain ID is not defined");
   }
 
   async isAuthorized() {
-    console.log("isAuthorized");
     try {
-      return !!(await this.#client.getUserInfo());
+      return !!(await this.sdk.user.getMetadata());
     } catch {
       return false;
     }
   }
 
   async connect(): Promise<Required<ConnectorData>> {
-    console.log("connect");
-
-    if (this.#client.status === "not_ready") {
-      if (this.#plugins) {
-        for (const plugin of this.#plugins) {
-          await this.#client.addPlugin(plugin);
-        }
-      }
-
-      if (this.#adapters) {
-        for (const adapter of this.#adapters) {
-          this.#client.configureAdapter(adapter);
-        }
-      }
-
-      await this.#client.initModal();
-    }
+    if (!this.sdk.apiKey) throw new Error("Magic API key is missing");
 
     try {
-      this.#provider =
-        (await this.#client.connect()) as SafeEventEmitterProvider;
-
-      if (!this.#provider) throw new Error("No provider found");
+      const provider = await this.getProvider();
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      this.#provider.on("accountsChanged", this.onAccountsChanged);
+      provider.on("accountsChanged", this.onAccountsChanged);
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      this.#provider.on("chainChanged", this.onChainChanged);
+      provider.on("chainChanged", this.onChainChanged);
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      this.#provider.on("disconnect", this.onDisconnect);
+      provider.on("disconnect", this.onDisconnect);
 
       this.emit("message", { type: "connecting" });
 
+      const accounts = await this.sdk.wallet.connectWithUI();
       const chainId = normalizeChainId(await this.getChainId());
 
       return {
-        account: await this.getAccount(),
+        account: accounts[0] as `0x${string}`,
         chain: {
           id: chainId,
           unsupported: this.isChainUnsupported(chainId),
@@ -138,8 +128,6 @@ export class Web3AuthConnector extends Connector<
         provider: this.#provider,
       };
     } catch (error) {
-      console.error(error);
-
       throw new UserRejectedRequestError(
         "User rejected the request to connect to Magic"
       );
@@ -147,8 +135,7 @@ export class Web3AuthConnector extends Connector<
   }
 
   async disconnect(): Promise<void> {
-    console.log("disconnect");
-    await this.#client.logout();
+    await this.sdk.wallet.disconnect();
   }
 
   protected onDisconnect(): void {
