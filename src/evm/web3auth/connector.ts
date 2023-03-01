@@ -93,7 +93,6 @@ export class Web3AuthConnector extends Connector<
     }
   }
 
-  // @ts-ignore
   async connect(): Promise<Required<ConnectorData>> {
     console.log("connect");
 
@@ -125,41 +124,39 @@ export class Web3AuthConnector extends Connector<
         await provider.request({ method: "eth_accounts" })
       );
 
-      const s = new ethers.providers.Web3Provider(provider);
-      // console.log("provider getAccount", provider);
+      const tmp = new ethers.providers.Web3Provider(provider);
+      const signer = tmp.getSigner();
+      const account = await signer.getAddress();
 
-      // const signer = s.getSigner();
-      // const account = await signer.getAddress();
+      console.log("conected", {
+        account: account,
+        // chain: {
+        //   id: await this.getChainId(),
+        //   unsupported: this.isChainUnsupported(await this.getChainId()),
+        // },
+      });
 
-      // console.log("conected", {
-      //   account: account,
-      //   // chain: {
-      //   //   id: await this.getChainId(),
-      //   //   unsupported: this.isChainUnsupported(await this.getChainId()),
-      //   // },
-      // });
+      console.log("here");
 
-      // console.log("here");
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      provider.on("accountsChanged", this.onAccountsChanged);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      provider.on("chainChanged", this.onChainChanged);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      provider.on("disconnect", this.onDisconnect);
 
-      // // eslint-disable-next-line @typescript-eslint/unbound-method
-      // provider.on("accountsChanged", this.onAccountsChanged);
-      // // eslint-disable-next-line @typescript-eslint/unbound-method
-      // provider.on("chainChanged", this.onChainChanged);
-      // // eslint-disable-next-line @typescript-eslint/unbound-method
-      // provider.on("disconnect", this.onDisconnect);
+      this.emit("message", { type: "connecting" });
 
-      // this.emit("message", { type: "connecting" });
+      const chainId = normalizeChainId(await this.getChainId());
 
-      // const chainId = normalizeChainId(await this.getChainId());
-
-      // return {
-      //   account: await this.getAccount(),
-      //   chain: {
-      //     id: chainId,
-      //     unsupported: this.isChainUnsupported(chainId),
-      //   },
-      //   provider: this.#provider,
-      // };
+      return {
+        account: await this.getAccount(),
+        chain: {
+          id: chainId,
+          unsupported: this.isChainUnsupported(chainId),
+        },
+        provider: this.#provider,
+      };
     } catch (error) {
       console.error(error);
 
