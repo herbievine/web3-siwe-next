@@ -5,7 +5,7 @@ import {
   type Chain,
 } from "wagmi";
 import { type CustomNodeConfiguration, Magic } from "magic-sdk";
-import ethers, { type Signer, type providers } from "ethers";
+import { ethers, type Signer, type providers } from "ethers";
 import { type Address, normalizeChainId } from "@wagmi/core";
 import { type Web3Auth } from "@web3auth/modal";
 import type { SafeEventEmitterProvider } from "@web3auth/base/dist/types/provider/IProvider";
@@ -113,37 +113,17 @@ export class Web3AuthConnector extends Connector<
     }
 
     try {
-      const provider = await this.#client.connect();
+      this.#provider =
+        (await this.#client.connect()) as SafeEventEmitterProvider;
 
-      if (!provider) throw new Error("No provider found");
-
-      this.#provider = provider;
-
-      console.log(
-        "request",
-        await provider.request({ method: "eth_accounts" })
-      );
-
-      const tmp = new ethers.providers.Web3Provider(provider);
-      const signer = tmp.getSigner();
-      const account = await signer.getAddress();
-
-      console.log("conected", {
-        account: account,
-        // chain: {
-        //   id: await this.getChainId(),
-        //   unsupported: this.isChainUnsupported(await this.getChainId()),
-        // },
-      });
-
-      console.log("here");
+      if (!this.#provider) throw new Error("No provider found");
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      provider.on("accountsChanged", this.onAccountsChanged);
+      this.#provider.on("accountsChanged", this.onAccountsChanged);
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      provider.on("chainChanged", this.onChainChanged);
+      this.#provider.on("chainChanged", this.onChainChanged);
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      provider.on("disconnect", this.onDisconnect);
+      this.#provider.on("disconnect", this.onDisconnect);
 
       this.emit("message", { type: "connecting" });
 
