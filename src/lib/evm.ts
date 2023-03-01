@@ -21,9 +21,6 @@ const connectors = connectorsForWallets([
     groupName: "Recommended",
     wallets: [
       metaMaskWallet({ chains }),
-      rainbowWallet({ chains }),
-      walletConnectWallet({ chains }),
-      ledgerWallet({ chains }),
       magicWallet({
         chains,
         options: {
@@ -36,6 +33,9 @@ const connectors = connectorsForWallets([
           },
         },
       }),
+      walletConnectWallet({ chains }),
+      ledgerWallet({ chains }),
+      rainbowWallet({ chains }),
     ],
   },
 ]);
